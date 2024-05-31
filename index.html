@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数学コンテスト</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.0/es5/tex-mml-chtml.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #222;
+            color: #ccc;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #333;
+            border-radius: 10px;
+            margin-top: 50px;
+            overflow-wrap: break-word; 
+            word-wrap: break-word; 
+            word-break: break-word; 
+        }
+        h1 {
+            text-align: center;
+            color: #fff;
+        }
+        select, input[type="text"], button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            margin-bottom: 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        select {
+            background-color: #444;
+            color: #ccc;
+        }
+        #submit-button {
+            background-color: #e74c3c;
+            cursor: pointer;
+        }
+        #submit-button:hover {
+            background-color: #c0392b;
+        }
+        #reset-button {
+            background-color: #3498db;
+            cursor: pointer;
+            display: none;
+        }
+        #reset-button:hover {
+            background-color: #2980b9;
+        }
+        #correct-answer-list {
+            background-color: #444;
+            padding: 20px;
+            border-radius: 4px;
+        }
+        #correct-answer-list h2 {
+            color: #fff;
+        }
+        .correct {
+            color: #2ecc71;
+        }
+        .wrong {
+            color: #e74c3c;
+        }
+        #timer {
+            text-align: center;
+            font-size: 24px;
+            margin-top: 20px;
+            color: #fff;
+        }
+        .links {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+        .links a {
+            color: #3498db;
+            text-decoration: none;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>数学コンテスト</h1>
+        <div class="links">
+            <a href="ranking.html">ランキング</a>
+            <a href="rules.html">ルール</a>
+        </div>
+        <select id="select-question">
+            <option value="0">問題を選択してください</option>
+            <option value="1">問題1</option>
+            <option value="2">問題2</option>
+            <option value="3">問題3</option>
+            <option value="4">問題4</option>
+            <option value="5">問題5</option>
+        </select>
+        <div id="question-container">
+            <p id="question">問題が表示されます</p>
+          <p id="difficulty">難易度: <span id="question-difficulty">---</span></p>
+        </div>
+        <div id="timer">00:00</div>
+        <div id="answer-container">
+            <input type="text" id="answer" placeholder="こたえを入力してください">
+            <button id="submit-button" onclick="checkAnswer()">送信</button>
+            <button id="admin-login-button" onclick="adminLogin()">管理者ログイン</button>
+            <button id="reset-button" onclick="confirmResetData()">データをリセットする</button>
+        </div>
+        <div id="correct-answer-list"></div>
+        <div class="scoreboard" id="scoreboard">
+            <h2>スコアボード</h2>
+            <div id="scoreboard-details"></div>
+        </div>
+    </div>
+
+    <script>
+      let questions = [
+    null, // インデックス0は使用しないため、nullを設定
+    { question: "$$2 + 2 = ?$$", answer: "4", difficulty: "Easy" },
+    { question: "$$10 - 5 = ?$$", answer: "5", difficulty: "Easy" },
+    { question: "$$3 \\times 3 = ?$$", answer: "9", difficulty: "Medium" },
+    { question: "$$\\frac{12}{4} = ?$$", answer: "3", difficulty: "Medium" },
+    { question: "$$\\int_0^1 x^2 dx = ?$$", answer: "1/3", difficulty: "Hard" } // 高度な数式の例
+];
+function displayQuestion() {
+    if (currentQuestion >= 0) {
+        document.getElementById("question").innerHTML = questions[currentQuestion].question;
+        document.getElementById("question-difficulty").innerText = questions[currentQuestion].difficulty;
+        MathJax.typeset(); // 数式の再レンダリングを要求
+        startTimer();
+    } else {
+        document.getElementById("question").innerHTML = "問題が表示されます";
+        document.getElementById("question-difficulty").innerText = "---";
+        document.getElementById("timer").innerText = "00:00";
+    }
+}
+let correctAnswers = new Array(questions.length).fill(null);
+let correctCounts = JSON.parse(localStorage.getItem('correctCounts')) || new Array(questions.length).fill(0);
+let userScores = JSON.parse(localStorage.getItem('userScores')) || {};
+let currentQuestion = -1;
+let startTime;
+let elapsedTime;
+let timerInterval;
+let penaltyTime = 300; // ペナルティ時間（秒）
+const adminPassword = "noni1729"; // 管理者パスワード
+
+document.getElementById("select-question").addEventListener("change", function() {
+    currentQuestion = parseInt(this.value);
+    displayQuestion();
+});
+
+function checkAnswer() {
+    if (currentQuestion === -1) {
+        alert("問題を選択してください");
+        return;
+    }
+
+    let userAnswer = document.getElementById("answer").value;
+    let correctAnswer = questions[currentQuestion].answer;
+
+    let userName = prompt("あなたの名前を入力してください:");
+
+    if (!userScores[userName]) {
+        userScores[userName] = { score: 0, answers: new Array(questions.length).fill(null), times: new Array(questions.length).fill(null) };
+    }
+
+    if (userAnswer === correctAnswer) {
+        alert("正解！");
+        if (correctAnswers[currentQuestion] !== true) { // 初めて正解した場合のみカウント
+            correctAnswers[currentQuestion] = true;
+            correctCounts[currentQuestion]++;
+            localStorage.setItem('correctCounts', JSON.stringify(correctCounts)); // ローカルストレージに保存
+        }
+
+        if (userScores[userName].answers[currentQuestion] !== true) { // 初めて正解した場合のみスコアを追加
+            userScores[userName].score++;
+            userScores[userName].answers[currentQuestion] = true;
+            stopTimer();
+            userScores[userName].times[currentQuestion] = userScores[userName].times[currentQuestion] || elapsedTime; // 初回の正解タイムを固定
+        }
+    } else {
+        alert("不正解。");
+        correctAnswers[currentQuestion] = false;
+
+        if (userScores[userName].answers[currentQuestion] !== true) {
+            // 未正解の問題を間違えた場合にペナルティを追加
+            userScores[userName].times[currentQuestion] = (userScores[userName].times[currentQuestion] || 0) + penaltyTime;
+        }
+        userScores[userName].answers[currentQuestion] = false; // 不正解を記録
+    }
+
+    localStorage.setItem('userScores', JSON.stringify(userScores)); // ローカルストレージに保存
+
+    document.getElementById("answer").value = ""; // 解答入力欄をクリア
+    displayCorrectAnswerList(); // 正解状況を表示
+    updateScoreboard(); // スコアボードを更新
+    updateRanking(); // ランキングを更新
+}
+
+function displayCorrectAnswerList() {
+    let correctAnswerList = document.getElementById("correct-answer-list");
+    correctAnswerList.innerHTML = "<h2>正解状況</h2>";
+    for (let i = 1; i < correctAnswers.length; i++) {
+        let statusText = correctAnswers[i] === null ? "-" : (correctAnswers[i] ? "<span class='correct'>CA</span>" : "<span class='wrong'>WA</span>");
+        let listItem = document.createElement("p");
+        listItem.innerHTML = `問題 ${i}: ${statusText}`;
+        correctAnswerList.appendChild(listItem);
+    }
+}
+
+function updateScoreboard() {
+    let scoreboardDetails = document.getElementById("scoreboard-details");
+    scoreboardDetails.innerHTML = "";
+    for (let i = 1; i < correctCounts.length; i++) {
+        let listItem = document.createElement("p");
+        listItem.innerHTML = `問題 ${i}: 正解数 ${correctCounts[i]}`;
+        scoreboardDetails.appendChild(listItem);
+    }
+}
+
+function updateRanking() {
+    let rankingDetails = document.getElementById("ranking-details");
+    rankingDetails.innerHTML = "";
+
+    let sortedUsers = Object.keys(userScores).sort((a, b) => {
+        if (userScores[b].score === userScores[a].score) {
+            let aTime = userScores[a].times.reduce((total, time) => total + (time || 0), 0);
+            let bTime = userScores[b].times.reduce((total, time) => total + (time || 0), 0);
+            return aTime - bTime;
+        }
+        return userScores[b].score - userScores[a].score;
+    });
+
+    sortedUsers.forEach((user, index) => {
+        let totalTime = userScores[user].times.reduce((total, time) => total + (time || 0), 0);
+        let formattedTime = formatTime(totalTime);
+        let listItem = document.createElement("p");
+        listItem.innerHTML = `${index + 1}. ${user}: スコア ${userScores[user].score}, 時間 ${formattedTime}`;
+        rankingDetails.appendChild(listItem);
+    });
+}
+
+function startTimer() {
+    startTime = new Date();
+    timerInterval = setInterval(updateTimer, 1000);
+}
+
+function stopTimer() {
+    clearInterval(timerInterval);
+    elapsedTime = ((new Date()) - startTime) / 1000; // 経過時間を秒単位で計算
+    updateTimer(); // タイマー表示を最終更新
+}
+
+function updateTimer() {
+    let now = new Date();
+    let elapsed = ((now - startTime) / 1000);
+    let minutes = Math.floor(elapsed / 60);
+    let seconds = Math.floor(elapsed % 60);
+    document.getElementById("timer").innerText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+function formatTime(seconds) {
+    let minutes = Math.floor(seconds / 60);
+    let remainingSeconds = Math.floor(seconds % 60);
+    return `${minutes}分${remainingSeconds}秒`;
+}
+
+function confirmResetData() {
+    if (confirm("本当に削除しますか？")) {
+        resetData();
+    }
+}
+
+function resetData() {
+    localStorage.clear();
+    correctAnswers = new Array(questions.length).fill(null);
+    correctCounts = new Array(questions.length).fill(0);
+    userScores = {};
+    alert("データがリセットされました");
+    document.getElementById("reset-button").style.display = "none"; // データ削除ボタンを隠す
+    displayCorrectAnswerList();
+    updateScoreboard();
+    updateRanking();
+}
+
+function adminLogin() {
+    let password = prompt("管理者パスワードを入力してください:");
+    if (password === adminPassword) {
+        document.getElementById("reset-button").style.display = "block";
+    } else {
+        alert("パスワードが違います。");
+    }
+}
+
+window.onload = function() {
+    displayQuestion();
+    updateScoreboard(); // ページロード時にスコアボードを更新
+    updateRanking(); // ページロード時にランキングを更新
+};
+
+  </script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ランキング - 数学コンテスト</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/contrib/auto-render.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #222;
+            color: #ccc;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #333;
+            border-radius: 10px;
+            margin-top: 50px;
+        }
+        h1 {
+            text-align: center;
+            color: #fff;
+        }
+        .links {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .links a {
+            color: #3498db;
+            text-decoration: none;
+            font-size: 16px;
+        }
+        .ranking {
+            background-color: #444;
+            padding: 20px;
+            border-radius: 4px;
+        }
+        .ranking h2 {
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ランキング</h1>
+        <div class="links">
+            <a href="index.html">コンテストページへ戻る</a>
+        </div>
+        <div class="ranking" id="ranking">
+            <h2>ランキング</h2>
+            <div id="ranking-details"></div>
+        </div>
+    </div>
+
+    <script>
+        let userScores = JSON.parse(localStorage.getItem('userScores')) || {};
+
+        function updateRanking() {
+            let rankingDetails = document.getElementById("ranking-details");
+            rankingDetails.innerHTML = "";
+
+            let sortedUsers = Object.keys(userScores).sort((a, b) => {
+                if (userScores[b].score === userScores[a].score) {
+                    let aTime = userScores[a].times.reduce((total, time) => total + (time || 0), 0);
+                    let bTime = userScores[b].times.reduce((total, time) => total + (time || 0), 0);
+                    return aTime - bTime;
+                }
+                return userScores[b].score - userScores[a].score;
+            });
+
+            sortedUsers.forEach((user, index) => {
+                let totalTime = userScores[user].times.reduce((total, time) => total + (time || 0), 0);
+                let formattedTime = formatTime(totalTime);
+                let listItem = document.createElement("p");
+                listItem.innerHTML = `${index + 1}. ${user}: スコア ${userScores[user].score}, 時間 ${formattedTime}`;
+                rankingDetails.appendChild(listItem);
+            });
+        }
+
+        function formatTime(seconds) {
+            let minutes = Math.floor(seconds / 60);
+            let remainingSeconds = Math.floor(seconds % 60);
+            return `${minutes}分${remainingSeconds}秒`;
+        }
+
+        window.onload = function() {
+            updateRanking();
+        };
+    </script>
+</body>
+</html>
